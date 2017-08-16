@@ -1,0 +1,48 @@
+Part1: How I solved the problem of synchronizing your threads.
+
+I create a struct called demo_markers, in which contains 4 arguments, which are ID(the ID of the marker), SID(the ID of the student being marked), Marking(whether the marker is marking a student)
+and a mutex lock. Then I create a global array (markers) to store the demo_markers. When the progress starts, it will store M markers into the array and all the demo_markers are set by the following 
+struct as default
+
+{
+ID =  marker's ID;
+SID = -1; (which meansing there is no student being marked.)
+Marking = 0; (0 means the marker is not marking and 1 means the marker is marking)
+mutex lock
+}
+
+when the student thread starts, it will search the makers to find the available markers. Once one student find an available marker, it will lock the mutex lock and set SID as its own ID and the Marking to 1
+so that other students cannot take this marker. After the student collects enough markers it will demo its project. When the demon is finished, the student will rest the markers' ID to -1 and Maring to 0
+and unlock the lock. At the same time, the marker thread will monitor whether it had been called or not. If the SID had been changed the marker will decide that it had been called and move onto monitoring the 
+Marking. When the Marking had been reset back to 0, the marker will decide that the demon has finished, the number of the job done will be added by one.
+
+When the student find that after panic(), there is no enough time for demo() it will end the thread.
+When the marker find that it had done maximun number of jobs or there is no enougth time for another demo(), it will end the thread.
+
+The above part is my idea of synchronizing  and cordinating the threads. 
+
+
+
+
+Part2: Why my method is correct
+
+1) I set up mutex lock for each marker, so that it can be only called by only one student at the same time. 
+
+2) The student cannot demo() before it find enough markers. 
+
+3) Both student and marker are foced to end the thread if there is no enough time.
+
+4) Markers are forced to end their thread if they had done enougth jobs.
+
+For all these reasons, I think my method had meet the demand of the coursework so I think my method is correct.
+
+
+
+
+Part3: How my method could be improved.
+
+When one students need many markers and the number of markes is not very large, the situation will become that, many students had found and locked at least one markes, but none of the them had enough markers,
+and all the markers had been taken, which will become a deadlock. When the situation become like this, some of the students have to give the markers they had grabbed to others so that others can finish their demo 
+and make the markers available again. But I stuck in the rules of how student gives away the markers. If I can make this rules, then the efficiency could be improved significantly. 
+
+
