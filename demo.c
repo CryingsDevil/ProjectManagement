@@ -64,8 +64,7 @@ typedef struct{
 
 static studentGrabing *studentGrab;
 
-// static pthread_cond_t noEnoughTime = PTHREAD_COND_INITIALIZER; 
-// static pthread_mutex_t noEnoughTimeLock = PTHREAD_MUTEX_INITIALIZER
+
 /*
  * timenow(): returns current simulated time in "minutes" (cs).
  * Assumes that starttime has been set already.
@@ -136,18 +135,6 @@ void *marker(void *arg) {
     int job = 0;
     while(job < parameters.N && parameters.T - timenow() > parameters.D){
         pthread_mutex_lock(&studentGrab->marker);
-        // if(studentGrab->ID == -2)break;
-        
-        // while(studentGrab->ID != -1 && studentGrab->finished == 1){
-        //     puts("aaaaaaa---------");
-        //     pthread_cond_wait(&studentGrab->grabbing, &studentGrab->marker);
-        //     puts("aaaaaaa");
-        // }
-        // while(studentGrab->ID == -1){
-        //     puts("bbbbbb----------");
-        //     pthread_cond_wait(&studentGrab->grabbing, &studentGrab->marker);
-        //     puts("bbbbbb");
-        // }
         while(studentGrab->ID == -1)pthread_cond_wait(&studentGrab->grabbing, &studentGrab->marker);
 
         if(studentGrab->markerGrabbed < parameters.K){
@@ -155,20 +142,21 @@ void *marker(void *arg) {
             studentID = studentGrab->ID;
             pthread_cond_broadcast(&studentGrab->markerIn);
             pthread_mutex_unlock(&studentGrab->marker);
-            /* The following line shall be printed when a marker is grabbed by a student. */
+            
             
             pthread_mutex_lock(&studentSS[studentID]->marker);
+            /* The following line shall be printed when a marker is grabbed by a student. */
             printf("%d marker %d: grabbed by student %d (job %d)\n", timenow(), markerID, studentID, job + 1);
             pthread_cond_wait(&studentSS[studentID]->demoBegin, &studentSS[studentID]->marker);
             pthread_mutex_unlock(&studentSS[studentID]->marker);
-            printf("Marker %d try to wait finished\n", markerID);
-            /* The following line shall be printed when a marker has finished attending a demo. */
+            
             if(parameters.T - timenow() > parameters.D){
                 pthread_mutex_lock(&studentSS[studentID]->marker);
                 pthread_cond_wait(&studentSS[studentID]->demoFinish, &studentSS[studentID]->marker);
+                /* The following line shall be printed when a marker has finished attending a demo. */
                 printf("%d marker %d: finished with student %d (job %d)\n", timenow(), markerID, studentID, job + 1);
                 job++;
-                // printf("marker %d finished %d turn\n", markerID, job); 
+                
                 pthread_mutex_unlock(&studentSS[studentID]->marker);
 
             }
@@ -177,8 +165,6 @@ void *marker(void *arg) {
         }else{
             pthread_mutex_unlock(&studentGrab->marker);
         }
-        
-        // printf("marker %d finished %d turn\n", markerID, job);
     }
     
 
@@ -195,8 +181,6 @@ void *marker(void *arg) {
         printf("%d marker %d: exits lab (timeout)\n", timenow(), markerID);
     }
     
-    
-
     return NULL;
 }
 
@@ -213,8 +197,7 @@ void *student(void *arg) {
         abort();
     }else{
         studentSS[studentID]->ID = studentID;
-        // studentSS[studentID]->markerGrabbed = 0;
-        // studentSS[studentID]->outOftime = 0;
+
         if(pthread_mutex_init(&studentSS[studentID]->marker, NULL) != 0 
             || pthread_mutex_init(&studentSS[studentID]->student, NULL) != 0 
             || pthread_cond_init(&studentSS[studentID]->demoFinish, NULL) != 0 
@@ -244,7 +227,6 @@ void *student(void *arg) {
         pthread_cond_broadcast(&studentGrab->grabbing);
         while(studentGrab->markerGrabbed < parameters.K && studentGrab->noEnoughTime == 0)pthread_cond_wait(&studentGrab->markerIn, &studentGrab->student); 
         
-        // printf("Student %d get %d marker!\n", studentGrab->ID, studentGrab->markerGrabbed);
         if(studentGrab->noEnoughTime == 1){
             printf("%d student %d: exits lab (timeout)\n", timenow(), studentID);
             pthread_cond_broadcast(&studentGrab->grabbed);
@@ -274,11 +256,6 @@ void *student(void *arg) {
         pthread_cond_broadcast(&studentSS[studentID]->demoFinish);
         printf("%d student %d: exits lab (finished)\n", timenow(), studentID);
         pthread_mutex_unlock(&studentSS[studentID]->student);
-        // if(studentID->ID != -1){
-            
-        // }else{
-
-        // }
     }else{
         printf("%d student %d: exits lab (timeout)\n", timenow(), studentID);
     }
@@ -308,7 +285,6 @@ void *student(void *arg) {
     err = pthread_cond_destroy(&studentSS[studentID]->demoBegin);
     if(err != 0)printf("Student %d condition demoBegin destroyed: %s\n", studentID, strerror(err));
 
-    // printf("Student %d all mutex and condition destroyed\n", studentID);
     return NULL;
 }
 
@@ -348,7 +324,6 @@ void run() {
             abort();
         }
     }
-    // int rec = pthread_cond_init(&noEnoughTime);
     
     /* Create S student threads */
     for (i = 0; i<parameters.S; i++) {
@@ -371,7 +346,6 @@ void run() {
     while(parameters.T - timenow() > parameters.D);
     delay(parameters.D / 4);    
     pthread_mutex_lock(&studentGrab->marker);
-    // printf("Run() broadcasting: no enough time.\n");
     studentGrab->markerGrabbed = parameters.K + 1;
     pthread_cond_broadcast(&studentGrab->markerIn);
     pthread_mutex_unlock(&studentGrab->marker);
@@ -388,22 +362,15 @@ void run() {
     pthread_cond_broadcast(&studentGrab->grabbing);
     pthread_cond_broadcast(&studentGrab->grabbed);
     pthread_mutex_unlock(&studentGrab->student);
-    // pthread_mutex_lock(&noEnoughTimeLock);
-    // pthread_cond_broadcast(&noEnoughTime);
-    // pthread_mutex_unlock(&noEnoughTime);
 
     /* Wait for student threads to finish */
     for (i = 0; i<parameters.S; i++) {
         pthread_join(studentT[i], NULL);
-        // printf("Student %d finished\n",i);
     }
-    // printf("Student all finished\n");
     /* Wait for marker threads to finish */
     for (i = 0; i<parameters.M; i++) {
         pthread_join(markerT[i], NULL);
-        // printf("Marker %d finished\n",i);
     }
-    // printf("Marker all finished\n");
     delay(10);
     pthread_mutex_lock(&studentGrab->marker);
     pthread_mutex_lock(&studentGrab->student);
