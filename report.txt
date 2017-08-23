@@ -1,48 +1,43 @@
-Part1: How I solved the problem of synchronizing your threads.
+Part1: How I solved the problem of sychronizing your thread;
+I create a global structure for students to grab markers.
+typedef struct{
+    int ID;
+    int noEnoughTime;
+    int markerGrabbed;
+    int finished;
+    pthread_cond_t grabbing;
+    pthread_cond_t grabbed;
+    pthread_cond_t markerIn;
+    pthread_mutex_t student;
+    pthread_mutex_t marker;
+}studentGrabing;
+When there is no student grabbing markers, the vaule of 'ID' wil be set to -1, which means any student thread can use this global structure to grab markers.
+When the structure is being used for grabbing markers, the other students thread which want to grab marker will wait for broadcast, and once the grabbing is finished, mutex condition 'grabbed' will be broadcast and tell other
+student that this structure is available.
+For marker thread, if the structure is using for grabbing markers, the marker thread will not need to wait. They just try to lock the mutex lock marker and be the marker of the student. 
+If the structure is not being used, the marker thread will wait for mutex condition 'grabbing' to wake them up that one new student thread start to grab markers.
 
-I create a struct called demo_markers, in which contains 4 arguments, which are ID(the ID of the marker), SID(the ID of the student being marked), Marking(whether the marker is marking a student)
-and a mutex lock. Then I create a global array (markers) to store the demo_markers. When the progress starts, it will store M markers into the array and all the demo_markers are set by the following 
-struct as default
+This is how I design the grabbing marker part.
 
-{
-ID =  marker's ID;
-SID = -1; (which meansing there is no student being marked.)
-Marking = 0; (0 means the marker is not marking and 1 means the marker is marking)
-mutex lock
-}
-
-when the student thread starts, it will search the makers to find the available markers. Once one student find an available marker, it will lock the mutex lock and set SID as its own ID and the Marking to 1
-so that other students cannot take this marker. After the student collects enough markers it will demo its project. When the demon is finished, the student will rest the markers' ID to -1 and Maring to 0
-and unlock the lock. At the same time, the marker thread will monitor whether it had been called or not. If the SID had been changed the marker will decide that it had been called and move onto monitoring the 
-Marking. When the Marking had been reset back to 0, the marker will decide that the demon has finished, the number of the job done will be added by one.
-
-When the student find that after panic(), there is no enough time for demo() it will end the thread.
-When the marker find that it had done maximun number of jobs or there is no enougth time for another demo(), it will end the thread.
-
-The above part is my idea of synchronizing  and cordinating the threads. 
-
-
-
+Then I create a structure for each student thread. The structure has two mutex locks, two mutex conditions and an integer. 
+typedef struct{
+    int ID;
+    pthread_mutex_t marker;
+    pthread_mutex_t student;
+    pthread_cond_t demoFinish;
+    pthread_cond_t demoBegin;
+}students;
+The mutex lock 'marker' is used for marker thread to wait for condition broadcast(when student start demo and end demo).
 
 Part2: Why my method is correct
 
-1) I set up mutex lock for each marker, so that it can be only called by only one student at the same time. 
+1)There is only one glboal structure, so only one student can grab marker at same time.
 
-2) The student cannot demo() before it find enough markers. 
+2)It is marker's responsibility to add the value of grabbed marker of the student thread, and this opeartion is under the protection of mutex lock, which will ensure that every student thread will grab the correct number marker.
 
-3) Both student and marker are foced to end the thread if there is no enough time.
-
-4) Markers are forced to end their thread if they had done enougth jobs.
-
-For all these reasons, I think my method had meet the demand of the coursework so I think my method is correct.
+3)It is everyone (student thread, marker thread and run() thread)'s responsibility to check whether the time is still enough for another demo or not. Once the time is not enough every thread will stop their work and exit the room.
 
 
-
-
-Part3: How my method could be improved.
-
-When one students need many markers and the number of markes is not very large, the situation will become that, many students had found and locked at least one markes, but none of the them had enough markers,
-and all the markers had been taken, which will become a deadlock. When the situation become like this, some of the students have to give the markers they had grabbed to others so that others can finish their demo 
-and make the markers available again. But I stuck in the rules of how student gives away the markers. If I can make this rules, then the efficiency could be improved significantly. 
-
-
+Part3: How my method could be improved
+The two structure is similar, maybe I can use only one structure instead of two. 
+The argument finished in structure studentGrabing is not often used. Maybe I can get rid of this argument. 
